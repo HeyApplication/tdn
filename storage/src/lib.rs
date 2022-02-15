@@ -8,3 +8,6 @@ pub mod distributed;
 
 #[cfg(feature = "decentralized")]
 pub mod decentralized;
+
+#[cfg(feature = "server")]
+pub mod server;
