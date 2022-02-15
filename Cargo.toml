@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "tdn",
+    "types",
+    "did",
+    "storage",
+]
+
+# DEBUG patch.
+[patch.crates-io]
+chamomile = { git = "https://github.com/cympletech/chamomile" }
+chamomile_types = { git = "https://github.com/cympletech/chamomile" }
