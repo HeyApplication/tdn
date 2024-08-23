@@ -28,7 +28,7 @@ tokio-tungstenite = "0.16"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", default-features = false, features = ["alloc", "derive"]}
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
-tdn_types = { version = "0.7", path = "../types", default-features = false }
+tdn_types = { version = "0.8", path = "../types", default-features = false }
 
 [dev-dependencies]
 #tdn_permission = "0.2"
