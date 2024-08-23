@@ -1,4 +1,7 @@
-use rand::prelude::*;
+use rand_chacha::{
+    rand_core::{RngCore, SeedableRng},
+    ChaChaRng,
+};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -6,14 +9,13 @@ use tokio::{
     fs,
     io::{AsyncReadExt, AsyncWriteExt, Result},
     net::{TcpListener, TcpStream},
-    sync::mpsc::Sender,
-    sync::RwLock,
+    sync::{mpsc::Sender, oneshot, RwLock},
 };
 //use std::time::Duration;
 
 use tdn_types::rpc::parse_jsonrpc;
 
-use super::{rpc_channel, RpcMessage};
+use super::RpcMessage;
 
 pub(crate) async fn http_listen(
     index: Option<PathBuf>,
@@ -92,8 +94,9 @@ async fn http_connection(
     addr: SocketAddr,
 ) -> Result<()> {
     debug!("DEBUG: HTTP connection established: {}", addr);
-    let id: u64 = rand::thread_rng().gen();
-    let (s_send, mut s_recv) = rpc_channel();
+    let mut rng = ChaChaRng::from_entropy();
+    let id: u64 = rng.next_u64();
+    let (s_send, s_recv) = oneshot::channel();
 
     let mut buf = vec![];
 
@@ -121,7 +124,7 @@ async fn http_connection(
     };
 
     let msg = String::from_utf8_lossy(body);
-    let res = "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*;\r\nContent-Type:application/json;charset=UTF-8\r\n\r\n";
+    let res = "HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin:*\r\nCross-Origin-Resource-Policy:cross-origin\r\nContent-Type:application/json;charset=UTF-8\r\n\r\n";
 
     match parse_jsonrpc((*msg).to_string()) {
         Ok(rpc_param) => {
@@ -138,17 +141,14 @@ async fn http_connection(
         }
     }
 
-    while let Some(msg) = s_recv.recv().await {
+    if let Ok(msg) = s_recv.await {
         let param = match msg {
             RpcMessage::Response(param) => param,
             _ => Default::default(),
         };
-        stream
-            .write(format!("{}{}", res, param.to_string()).as_bytes())
-            .await?;
+        let _ = stream.write(format!("{}{}", res, param).as_bytes()).await?;
         let _ = stream.flush().await;
         stream.shutdown().await?;
-        break;
     }
 
     Ok(())

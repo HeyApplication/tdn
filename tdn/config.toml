@@ -1,6 +1,5 @@
-## Group Hex ID, No "0x".
-## Example: group_id = "55fdd55633c578c7f2fb3e299f3d3bc88f8a9908df448f032c1b5d29db91e8c4"
-group_id = "0000000000000000000000000000000000000000000000000000000000000000"
+## Example: group_id = 0
+group_id = 0
 
 ## This will be random string, and you can change.
 ## if need use secret nonce or seed, it will be useful.
@@ -10,11 +9,6 @@ secret = "{}"
 ## Default is `$HOME`,  `./` when dev.
 ## Example: db_path = "./"
 db_path = "./.tdn"
-
-## Group Symbol Name.
-## If also have group_id and group_symbol, config will use group_id.
-## Example: group_symbol = "CypherLink"
-group_symbol = "CypherLink"
 
 ## App Permission.
 ## If set true, it is permissioned, and only stable connection;
@@ -54,13 +48,13 @@ p2p_bootstrap = []
 ##          ]
 #p2p_block_peer_list = []
 
-## RPC listen address, default is 127.0.0.1:8000, uncomment below to change.
-## Example: rpc_addr = "127.0.0.1:8000"
-rpc_addr = "127.0.0.1:8000"
+## RPC HTTP listen address, default is 127.0.0.1:7365, uncomment below to change.
+## Example: rpc_http = "127.0.0.1:7365"
+rpc_http = "127.0.0.1:7365"
 
-## WS listen address, default closed. if need, uncomment below to change.
-## Example: rpc_ws = "127.0.0.1:8080"
-rpc_ws = "127.0.0.1:8080"
+## RPC WS listen address, default closed. if need, uncomment below to change.
+## Example: rpc_ws = "127.0.0.1:7366"
+rpc_ws = "127.0.0.1:7366"
 
 ## RPC Service index html body. if has, set path, if not, comment it.
 ## Example: rpc_index = "/var/www/html/index.html"
