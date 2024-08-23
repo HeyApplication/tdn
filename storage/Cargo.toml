@@ -4,7 +4,7 @@ version = "0.8.0"
 authors = ["Dev <dev@cympletech.com>"]
 edition = "2021"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/cympletech/tdn"
+repository = "https://mariuszmalek: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@github.com/HeyApplication/tdn"
 description = "A pluggable library for TDN, include local file, local db, distributed db, decentralized db."
 keywords = ["storage", "database", "distributed", "decentralized"]
 
