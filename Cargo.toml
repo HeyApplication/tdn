@@ -8,5 +8,5 @@ members = [
 
 # # DEBUG patch.
 # [patch.crates-io]
-# chamomile = { git = "https://github.com/cympletech/chamomile" }
-# chamomile_types = { git = "https://github.com/cympletech/chamomile" }
+# chamomile = { git = "https://mariuszmalek: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@github.com/HeyApplication/chamomile" }
+# chamomile_types = { git = "https://mariuszmalek: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@github.com/HeyApplication/chamomile" }
