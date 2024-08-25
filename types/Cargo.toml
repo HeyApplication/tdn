@@ -5,7 +5,7 @@ authors = ["Dev <dev@cympletech.com>"]
 edition = "2021"
 readme = "README.md"
 description = "Trusted Distributed Network types."
-repository = "https://mariuszmalek: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@github.com/HeyApplication/TDN"
+repository = "https://mariuszmalek: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@github.com/HeyApplication/tdn"
 keywords = ["distributed", "blockchain", "web3"]
 license = "MIT/Apache-2.0"
 

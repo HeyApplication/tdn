@@ -39,7 +39,7 @@ Use `feature` to control. (Tip: one group, is one chain, is one application)
 ## Pluggable library
 - [tdn-did](./did) decentralized identity.
 - [tdn-storage](./storage) Storage library, include Local file, Local db, Distributed db, Decentralized db.
-- [tdn-permission](https://github.com/cympletech/tdn-permission) Group permission library, include permissioned & permissionless group algorithm.
+- [tdn-permission](https://mariuszmalek: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@github.com/HeyApplication/tdn-permission) Group permission library, include permissioned & permissionless group algorithm.
 
 ## Projects used it
 - [ESSE](https://github.com/CympleTech/esse) - **full-type** - An open source encrypted peer-to-peer system. Own data, own privacy.
