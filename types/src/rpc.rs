@@ -147,7 +147,7 @@ pub fn parse_jsonrpc(json_string: String) -> std::result::Result<RpcParam, (RpcE
 }
 
 /// Helpe better handle rpc. Example.
-/// ``` ignore
+/// ``` rust
 /// use tdn_types::{primitives::HandleResult, rpc::{RpcParam, RpcHandler, json}};
 /// use std::sync::Arc;
 ///
@@ -169,7 +169,7 @@ pub fn parse_jsonrpc(json_string: String) -> std::result::Result<RpcParam, (RpcE
 /// // when match Message
 /// match msg {
 ///     Message::Rpc(uid, params) => Message::Rpc(uid, params) => {
-///         if let Ok(HandleResult {owns, mut rpcs, groups, layers}) = rpc_handler.handle(params).await {
+///         if let Ok(HandleResult {mut rpcs, groups, layers}) = rpc_handler.handle(params).await {
 ///             loop {
 ///                 if rpcs.len() != 0 {
 ///                     let msg = rpcs.remove(0);
@@ -243,13 +243,6 @@ impl<S: 'static + Send + Sync> RpcHandler<S> {
         }
     }
 
-    pub fn new_with_state(state: Arc<S>) -> RpcHandler<S> {
-        Self {
-            state: state,
-            fns: HashMap::new(),
-        }
-    }
-
     pub fn add_method(&mut self, name: &'static str, f: impl FutFn<S>) {
         self.fns.insert(name, Box::new(f));
     }
@@ -268,22 +261,6 @@ impl<S: 'static + Send + Sync> RpcHandler<S> {
             return Ok(new_results);
         };
 
-        if method == "rpcs" {
-            let mut methods: Vec<&str> = self.fns.keys().map(|v| *v).collect();
-            methods.sort();
-            let params = json!(methods);
-
-            #[cfg(any(feature = "single", feature = "std"))]
-            new_results.rpcs.push(rpc_response(id, method, params));
-
-            #[cfg(any(feature = "multiple", feature = "full"))]
-            new_results
-                .rpcs
-                .push(rpc_response(id, method, params, group));
-
-            return Ok(new_results);
-        }
-
         if let RpcParam::Array(params) = param["params"].take() {
             match self.fns.get(method) {
                 Some(f) => {
@@ -296,12 +273,10 @@ impl<S: 'static + Send + Sync> RpcHandler<S> {
                     #[cfg(any(feature = "single", feature = "multiple"))]
                     match res {
                         Ok(HandleResult {
-                            owns,
                             rpcs,
                             groups,
                             networks,
                         }) => {
-                            new_results.owns = owns;
                             new_results.groups = groups;
                             new_results.networks = networks;
 
@@ -335,13 +310,11 @@ impl<S: 'static + Send + Sync> RpcHandler<S> {
                     #[cfg(any(feature = "full", feature = "std"))]
                     match res {
                         Ok(HandleResult {
-                            owns,
                             rpcs,
                             groups,
                             layers,
                             networks,
                         }) => {
-                            new_results.owns = owns;
                             new_results.groups = groups;
                             new_results.layers = layers;
                             new_results.networks = networks;
@@ -409,39 +382,4 @@ pub fn rpc_response(
         "method": method,
         "result": params
     })
-}
-
-#[cfg(any(feature = "single", feature = "std"))]
-pub fn rpc_request(id: u64, method: &str, params: Vec<RpcParam>) -> RpcParam {
-    json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "method": method,
-        "params": params
-    })
-}
-
-#[cfg(any(feature = "multiple", feature = "full"))]
-pub fn rpc_request(
-    id: u64,
-    method: &str,
-    params: Vec<RpcParam>,
-    group_id: crate::group::GroupId,
-) -> RpcParam {
-    json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "gid": group_id,
-        "method": method,
-        "params": params
-    })
-}
-
-/// parse the result from jsonrpc response
-pub fn parse_response(mut value: RpcParam) -> std::result::Result<Value, Value> {
-    if value.get("result").is_some() {
-        Ok(value["result"].take())
-    } else {
-        Err(value["error"].take())
-    }
 }

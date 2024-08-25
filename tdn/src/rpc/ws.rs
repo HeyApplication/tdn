@@ -1,7 +1,4 @@
-use rand_chacha::{
-    rand_core::{RngCore, SeedableRng},
-    ChaChaRng,
-};
+use rand::prelude::*;
 use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use tokio::{
@@ -39,11 +36,11 @@ async fn ws_connection(
         .await
         .map_err(|_e| Error::new(ErrorKind::Other, "Accept WebSocket Failure!"))?;
     debug!("DEBUG: WebSocket connection established: {}", addr);
-
-    let mut rng = ChaChaRng::from_entropy();
-    let id: u64 = rng.next_u64();
+    let id: u64 = rand::thread_rng().gen();
     let (s_send, mut s_recv) = rpc_channel();
-    send.send(RpcMessage::Open(id, s_send)).await?;
+    send.send(RpcMessage::Open(id, s_send))
+        .await
+        .expect("Ws to Rpc channel closed");
 
     let (mut writer, mut reader) = ws_stream.split();
 
@@ -70,15 +67,11 @@ async fn ws_connection(
             }
             Some(FutureResult::Stream(msg)) => {
                 let msg = msg.to_text().unwrap();
-                if msg == "ping" {
-                    let s = WsMessage::from("pong".to_owned());
-                    let _ = writer.send(s).await;
-                    continue;
-                }
-
                 match parse_jsonrpc(msg.to_owned()) {
                     Ok(rpc_param) => {
-                        send.send(RpcMessage::Request(id, rpc_param, None)).await?;
+                        send.send(RpcMessage::Request(id, rpc_param, None))
+                            .await
+                            .expect("Ws to Rpc channel closed");
                     }
                     Err((err, id)) => {
                         let s = WsMessage::from(err.json(id).to_string());
@@ -90,6 +83,8 @@ async fn ws_connection(
         }
     }
 
-    send.send(RpcMessage::Close(id)).await?;
+    send.send(RpcMessage::Close(id))
+        .await
+        .expect("Ws to Rpc channel closed");
     Ok(())
 }

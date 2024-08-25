@@ -4,13 +4,10 @@ use std::fmt;
 use std::ops::Deref;
 use zeroize::Zeroize;
 
-use tdn_types::primitives::secp256k1::{
-    PublicKey as Secp256k1PublicKey, Secp256k1, SecretKey as Secp256k1SecretKey,
-};
+#[cfg(feature = "secp256k1")]
+use secp256k1::{PublicKey as Secp256k1PublicKey, SecretKey as Secp256k1SecretKey};
 
-#[cfg(feature = "ed25519")]
 use curve25519_dalek::scalar::Scalar;
-#[cfg(feature = "ed25519")]
 use ed25519_dalek::{PublicKey as Ed25519PublicKey, SecretKey as Ed25519SecretKey};
 
 use crate::bip44::{ChildNumber, IntoDerivationPath};
@@ -49,11 +46,13 @@ impl fmt::Debug for Protected {
     }
 }
 
+#[cfg(feature = "secp256k1")]
 pub struct Secp256k1ExtendedPrivKey {
     pub secret_key: Secp256k1SecretKey,
     chain_code: Protected,
 }
 
+#[cfg(feature = "secp256k1")]
 impl Secp256k1ExtendedPrivKey {
     /// Attempts to derive an extended private key from a path.
     pub fn derive<Path>(seed: &[u8], path: Path) -> Result<Secp256k1ExtendedPrivKey, Error>
@@ -82,7 +81,7 @@ impl Secp256k1ExtendedPrivKey {
     pub fn child(&self, child: ChildNumber) -> Result<Secp256k1ExtendedPrivKey, Error> {
         let mut hmac: Hmac<Sha512> =
             Hmac::new_from_slice(&self.chain_code).map_err(|_| Error::InvalidChildNumber)?;
-        let secp = Secp256k1::new();
+        let secp = secp256k1::Secp256k1::new();
 
         if child.is_normal() {
             hmac.update(
@@ -98,9 +97,10 @@ impl Secp256k1ExtendedPrivKey {
         let result = hmac.finalize().into_bytes();
         let (secret_key, chain_code) = result.split_at(32);
 
-        let secret_key = Secp256k1SecretKey::from_slice(&secret_key)
-            .map_err(Error::Secp256k1)?
-            .add_tweak(&self.secret_key.into())
+        let mut secret_key =
+            Secp256k1SecretKey::from_slice(&secret_key).map_err(Error::Secp256k1)?;
+        secret_key
+            .add_assign(self.secret_key.as_ref())
             .map_err(Error::Secp256k1)?;
 
         Ok(Secp256k1ExtendedPrivKey {
@@ -110,7 +110,7 @@ impl Secp256k1ExtendedPrivKey {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "secp256k1"))]
 impl std::str::FromStr for Secp256k1ExtendedPrivKey {
     type Err = Error;
 
@@ -131,13 +131,11 @@ impl std::str::FromStr for Secp256k1ExtendedPrivKey {
     }
 }
 
-#[cfg(feature = "ed25519")]
 pub struct Ed25519ExtendedPrivKey {
     pub secret_key: Ed25519SecretKey,
     chain_code: Protected,
 }
 
-#[cfg(feature = "ed25519")]
 impl Ed25519ExtendedPrivKey {
     /// Attempts to derive an extended private key from a path.
     pub fn derive<Path>(seed: &[u8], path: Path) -> Result<Ed25519ExtendedPrivKey, Error>
@@ -202,7 +200,7 @@ impl Ed25519ExtendedPrivKey {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "secp256k1"))]
 mod tests_secp256k1 {
     use super::*;
     use crate::{Language, Mnemonic};
@@ -275,7 +273,7 @@ mod tests_secp256k1 {
     }
 }
 
-#[cfg(all(test, feature = "ed25519"))]
+#[cfg(test)]
 mod tests_ed25519 {
     use super::*;
     use crate::{Language, Mnemonic};

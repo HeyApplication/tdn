@@ -12,7 +12,8 @@ pub enum Error {
     /// The mnemonic has an invalid checksum.
     InvalidChecksum,
     /// Error from libsecp256k1.
-    Secp256k1(tdn_types::primitives::secp256k1::Error),
+    #[cfg(feature = "secp256k1")]
+    Secp256k1(secp256k1::Error),
     /// Error for Ed25519
     Ed25519(String),
     /// Invalid Children number.
@@ -38,6 +39,7 @@ impl fmt::Display for Error {
             ),
             Error::UnknownWord(word) => write!(f, "mnemonic contains an unknown word: {}", word),
             Error::InvalidChecksum => write!(f, "mnemonic has an invalid checksum"),
+            #[cfg(feature = "secp256k1")]
             Error::Secp256k1(e) => write!(f, "secp256k1: {}", e),
             Error::Ed25519(e) => write!(f, "ed25519: {}.", e),
             Error::InvalidChildNumber => write!(f, "invalid Children number."),

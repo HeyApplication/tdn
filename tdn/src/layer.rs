@@ -52,18 +52,23 @@ pub(crate) async fn layer_handle_send(
 #[inline]
 pub(crate) async fn layer_handle_connect(
     fgid: GroupId,
-    tgid: GroupId,
+    _tgid: GroupId,
     out_send: &Sender<ReceiveMessage>,
     peer: Peer,
     data: Vec<u8>,
 ) -> Result<()> {
     let gmsg = RecvType::Connect(peer, data);
-    let msg = ReceiveMessage::Layer(fgid, tgid, gmsg);
+
+    #[cfg(any(feature = "single", feature = "std"))]
+    let msg = ReceiveMessage::Layer(fgid, gmsg);
+    #[cfg(any(feature = "multiple", feature = "full"))]
+    let msg = ReceiveMessage::Layer(fgid, _tgid, gmsg);
 
     out_send
         .send(msg)
         .await
-        .map_err(|e| error!("Outside channel: {:?}", e));
+        .map_err(|e| error!("Outside channel: {:?}", e))
+        .expect("Outside channel closed");
 
     Ok(())
 }
@@ -71,18 +76,23 @@ pub(crate) async fn layer_handle_connect(
 #[inline]
 pub(crate) async fn layer_handle_result_connect(
     fgid: GroupId,
-    tgid: GroupId,
+    _tgid: GroupId,
     out_send: &Sender<ReceiveMessage>,
     peer: Peer,
     data: Vec<u8>,
 ) -> Result<()> {
     let gmsg = RecvType::ResultConnect(peer, data);
-    let msg = ReceiveMessage::Layer(fgid, tgid, gmsg);
+
+    #[cfg(any(feature = "single", feature = "std"))]
+    let msg = ReceiveMessage::Layer(fgid, gmsg);
+    #[cfg(any(feature = "multiple", feature = "full"))]
+    let msg = ReceiveMessage::Layer(fgid, _tgid, gmsg);
 
     out_send
         .send(msg)
         .await
-        .map_err(|e| error!("Outside channel: {:?}", e));
+        .map_err(|e| error!("Outside channel: {:?}", e))
+        .expect("Outside channel closed");
 
     Ok(())
 }
@@ -90,19 +100,24 @@ pub(crate) async fn layer_handle_result_connect(
 #[inline]
 pub(crate) async fn layer_handle_result(
     fgid: GroupId,
-    tgid: GroupId,
+    _tgid: GroupId,
     out_send: &Sender<ReceiveMessage>,
     peer: Peer,
     is_ok: bool,
     data: Vec<u8>,
 ) -> Result<()> {
     let gmsg = RecvType::Result(peer, is_ok, data);
-    let msg = ReceiveMessage::Layer(fgid, tgid, gmsg);
+
+    #[cfg(any(feature = "single", feature = "std"))]
+    let msg = ReceiveMessage::Layer(fgid, gmsg);
+    #[cfg(any(feature = "multiple", feature = "full"))]
+    let msg = ReceiveMessage::Layer(fgid, _tgid, gmsg);
 
     out_send
         .send(msg)
         .await
-        .map_err(|e| error!("Outside channel: {:?}", e));
+        .map_err(|e| error!("Outside channel: {:?}", e))
+        .expect("Outside channel closed");
 
     Ok(())
 }
@@ -114,12 +129,17 @@ pub(crate) async fn layer_handle_leave(
     peer: impl Into<Peer>,
 ) -> Result<()> {
     let gmsg = RecvType::Leave(peer.into());
+
+    #[cfg(any(feature = "single", feature = "std"))]
+    let msg = ReceiveMessage::Layer(fgid, gmsg);
+    #[cfg(any(feature = "multiple", feature = "full"))]
     let msg = ReceiveMessage::Layer(fgid, fgid, gmsg);
 
     out_send
         .send(msg)
         .await
-        .map_err(|e| error!("Outside channel: {:?}", e));
+        .map_err(|e| error!("Outside channel: {:?}", e))
+        .expect("Outside channel closed");
 
     Ok(())
 }
@@ -127,18 +147,23 @@ pub(crate) async fn layer_handle_leave(
 #[inline]
 pub(crate) async fn layer_handle_data(
     fgid: GroupId,
-    tgid: GroupId,
+    _tgid: GroupId,
     out_send: &Sender<ReceiveMessage>,
     peer_id: PeerId,
     data: Vec<u8>,
 ) -> Result<()> {
     let gmsg = RecvType::Event(peer_id, data);
-    let msg = ReceiveMessage::Layer(fgid, tgid, gmsg);
+
+    #[cfg(any(feature = "single", feature = "std"))]
+    let msg = ReceiveMessage::Layer(fgid, gmsg);
+    #[cfg(any(feature = "multiple", feature = "full"))]
+    let msg = ReceiveMessage::Layer(fgid, _tgid, gmsg);
 
     out_send
         .send(msg)
         .await
-        .map_err(|e| error!("Outside channel: {:?}", e));
+        .map_err(|e| error!("Outside channel: {:?}", e))
+        .expect("Outside channel closed");
 
     Ok(())
 }
@@ -146,19 +171,24 @@ pub(crate) async fn layer_handle_data(
 #[inline]
 pub(crate) async fn layer_handle_stream(
     fgid: GroupId,
-    tgid: GroupId,
+    _tgid: GroupId,
     out_send: &Sender<ReceiveMessage>,
     uid: u32,
     stream_type: StreamType,
     data: Vec<u8>,
 ) -> Result<()> {
     let gmsg = RecvType::Stream(uid, stream_type, data);
-    let msg = ReceiveMessage::Layer(fgid, tgid, gmsg);
+
+    #[cfg(any(feature = "single", feature = "std"))]
+    let msg = ReceiveMessage::Layer(fgid, gmsg);
+    #[cfg(any(feature = "multiple", feature = "full"))]
+    let msg = ReceiveMessage::Layer(fgid, _tgid, gmsg);
 
     out_send
         .send(msg)
         .await
-        .map_err(|e| error!("Outside channel: {:?}", e));
+        .map_err(|e| error!("Outside channel: {:?}", e))
+        .expect("Outside channel closed");
 
     Ok(())
 }
@@ -166,19 +196,24 @@ pub(crate) async fn layer_handle_stream(
 #[inline]
 pub(crate) async fn layer_handle_delivery(
     fgid: GroupId,
-    tgid: GroupId,
+    _tgid: GroupId,
     out_send: &Sender<ReceiveMessage>,
     delivery_type: DeliveryType,
     tid: u64,
     is_sended: bool,
 ) -> Result<()> {
     let gmsg = RecvType::Delivery(delivery_type, tid, is_sended);
-    let msg = ReceiveMessage::Layer(fgid, tgid, gmsg);
+
+    #[cfg(any(feature = "single", feature = "std"))]
+    let msg = ReceiveMessage::Layer(fgid, gmsg);
+    #[cfg(any(feature = "multiple", feature = "full"))]
+    let msg = ReceiveMessage::Layer(fgid, _tgid, gmsg);
 
     out_send
         .send(msg)
         .await
-        .map_err(|e| error!("Outside channel: {:?}", e));
+        .map_err(|e| error!("Outside channel: {:?}", e))
+        .expect("Outside channel closed");
 
     Ok(())
 }
