@@ -1,6 +1,6 @@
 [package]
 name = "tdn_storage"
-version = "0.10.0"
+version = "0.8.0"
 authors = ["Dev <dev@cympletech.com>"]
 edition = "2021"
 license = "MIT/Apache-2.0"
