@@ -29,7 +29,7 @@ tokio-tungstenite = "0.21"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 
-tdn_types = { version = "0.10", path = "../types", default-features = false }
+tdn_types = { version = "0.8", path = "../types", default-features = false }
 
 [dev-dependencies]
 #tdn_permission = "0.2"

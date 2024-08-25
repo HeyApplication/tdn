@@ -14,7 +14,7 @@ default = ["rand_chacha"]
 ed25519 = ["ed25519-dalek", "curve25519-dalek"]
 
 [dependencies]
-tdn_types = { version = "0.10", path = "../types", default-features = false }
+tdn_types = { version = "0.8", path = "../types", default-features = false }
 
 anyhow = "1.0"
 zeroize = "1.5"
