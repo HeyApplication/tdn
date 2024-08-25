@@ -32,7 +32,7 @@
 panic!("feature conflict, only one feature at one time.");
 
 #[macro_use]
-extern crate log;
+extern crate tracing;
 
 mod config;
 mod group;
@@ -50,16 +50,24 @@ pub use tdn_types as types;
 // public struct
 pub mod prelude {
     pub use super::config::Config;
-    pub use tdn_types::group::{GroupId, GROUP_BYTES_LENGTH};
-    pub use tdn_types::message::{NetworkType, RecvType, SendType, StateRequest, StateResponse};
-    pub use tdn_types::message::{ReceiveMessage, SendMessage};
-    pub use tdn_types::primitives::{Broadcast, HandleResult, Peer, PeerId, PeerKey, Result};
+    pub use super::rpc::{
+        channel_rpc_channel, ChannelAddr, ChannelMessage, ChannelRpcSender, RpcConfig, RpcMessage,
+    };
+    pub use chamomile::prelude::Config as P2pConfig;
+    pub use tdn_types::{
+        group::{GroupId, GROUP_BYTES_LENGTH},
+        message::{
+            NetworkType, ReceiveMessage, RecvType, SendMessage, SendType, StateRequest,
+            StateResponse,
+        },
+        primitives::{Broadcast, HandleResult, Peer, PeerId, PeerKey, Result},
+    };
 
     use chamomile::prelude::{
-        start as chamomile_start, start_with_key as chamomile_start_with_key, Config as P2pConfig,
+        start as chamomile_start, start_with_key as chamomile_start_with_key,
         ReceiveMessage as ChamomileReceiveMessage, SendMessage as ChamomileSendMessage,
     };
-    use std::sync::Arc;
+    use std::{path::PathBuf, sync::Arc};
     use tdn_types::message::RpcSendMessage;
     use tokio::{
         sync::mpsc::{self, Receiver, Sender},
@@ -67,19 +75,19 @@ pub mod prelude {
     };
 
     use super::group::*;
-    use super::rpc::{start as rpc_start, RpcConfig};
+    use super::rpc::start as rpc_start;
 
     #[cfg(any(feature = "std", feature = "full"))]
     use super::layer::*;
 
     /// new a channel, send message to TDN Message. default capacity is 1024.
     pub fn new_send_channel() -> (Sender<SendMessage>, Receiver<SendMessage>) {
-        mpsc::channel(128)
+        mpsc::channel(1024)
     }
 
     /// new a channel, send message to TDN Message. default capacity is 1024.
     pub fn new_receive_channel() -> (Sender<ReceiveMessage>, Receiver<ReceiveMessage>) {
-        mpsc::channel(128)
+        mpsc::channel(1024)
     }
 
     /// start a service, use config.toml file.
@@ -88,11 +96,12 @@ pub mod prelude {
         let (send_send, send_recv) = new_send_channel();
         let (recv_send, recv_recv) = new_receive_channel();
 
-        let config = Config::load().await;
+        let config = Config::load(PathBuf::from("./")).await;
 
         let (_secret, ids, p2p_config, rpc_config) = config.split();
         let rpc_send = start_rpc(rpc_config, recv_send.clone()).await?;
-        let peer_id = start_main(ids, p2p_config, recv_send, send_recv, rpc_send, None).await?;
+        let peer_id =
+            start_main(ids, p2p_config, recv_send, send_recv, Some(rpc_send), None).await?;
 
         Ok((peer_id, send_send, recv_recv))
     }
@@ -106,7 +115,8 @@ pub mod prelude {
 
         let (_secret, ids, p2p_config, rpc_config) = config.split();
         let rpc_send = start_rpc(rpc_config, recv_send.clone()).await?;
-        let peer_id = start_main(ids, p2p_config, recv_send, send_recv, rpc_send, None).await?;
+        let peer_id =
+            start_main(ids, p2p_config, recv_send, send_recv, Some(rpc_send), None).await?;
 
         Ok((peer_id, send_send, recv_recv))
     }
@@ -121,8 +131,15 @@ pub mod prelude {
 
         let (_secret, ids, p2p_config, rpc_config) = config.split();
         let rpc_send = start_rpc(rpc_config, recv_send.clone()).await?;
-        let peer_id =
-            start_main(ids, p2p_config, recv_send, send_recv, rpc_send, Some(key)).await?;
+        let peer_id = start_main(
+            ids,
+            p2p_config,
+            recv_send,
+            send_recv,
+            Some(rpc_send),
+            Some(key),
+        )
+        .await?;
 
         Ok((peer_id, send_send, recv_recv))
     }
@@ -141,7 +158,7 @@ pub mod prelude {
         p2p_config: P2pConfig,
         out_send: Sender<ReceiveMessage>,
         mut self_recv: Receiver<SendMessage>,
-        rpc_send: Sender<RpcSendMessage>,
+        rpc_send: Option<Sender<RpcSendMessage>>,
         key: Option<PeerKey>,
     ) -> Result<PeerId> {
         // start chamomile network & inner rpc.
@@ -157,136 +174,8 @@ pub mod prelude {
         let my_groups = Arc::new(RwLock::new(group_ids));
         let my_groups_1 = my_groups.clone();
 
-        // handle outside msg.
-        tokio::spawn(async move {
-            while let Some(message) = self_recv.recv().await {
-                match message {
-                    #[cfg(any(feature = "single", feature = "std"))]
-                    SendMessage::Group(msg) => {
-                        let groups_lock = my_groups_1.read().await;
-                        if groups_lock.len() == 0 {
-                            drop(groups_lock);
-                            continue;
-                        }
-                        let default_group_id = groups_lock[0].clone();
-                        drop(groups_lock);
-
-                        group_handle_send(default_group_id, &p2p_send, msg)
-                            .await
-                            .map_err(|e| error!("Chamomile channel: {:?}", e))
-                            .expect("Chamomile channel closed");
-                    }
-                    #[cfg(any(feature = "multiple", feature = "full"))]
-                    SendMessage::Group(group_id, msg) => {
-                        group_handle_send(group_id, &p2p_send, msg)
-                            .await
-                            .map_err(|e| error!("Chamomile channel: {:?}", e))
-                            .expect("Chamomile channel closed");
-                    }
-                    SendMessage::Rpc(uid, param, is_ws) => {
-                        rpc_send
-                            .send(RpcSendMessage(uid, param, is_ws))
-                            .await
-                            .map_err(|e| error!("Rpc channel: {:?}", e))
-                            .expect("Rpc channel closed");
-                    }
-                    #[cfg(feature = "std")]
-                    SendMessage::Layer(tgid, msg) => {
-                        let groups_lock = my_groups_1.read().await;
-                        if groups_lock.len() == 0 {
-                            drop(groups_lock);
-                            continue;
-                        }
-                        let default_group_id = groups_lock[0].clone();
-                        drop(groups_lock);
-
-                        layer_handle_send(default_group_id, tgid, &p2p_send, msg)
-                            .await
-                            .map_err(|e| error!("Chamomile channel: {:?}", e))
-                            .expect("Chamomile channel closed");
-                    }
-                    #[cfg(feature = "full")]
-                    SendMessage::Layer(fgid, tgid, msg) => {
-                        layer_handle_send(fgid, tgid, &p2p_send, msg)
-                            .await
-                            .map_err(|e| error!("Chamomile channel: {:?}", e))
-                            .expect("Chamomile channel closed");
-                    }
-                    SendMessage::Network(nmsg) => match nmsg {
-                        NetworkType::Broadcast(broadcast, data) => {
-                            // broadcast use default_group_id.
-                            let mut bytes = vec![];
-                            let groups_lock = my_groups_1.read().await;
-                            if groups_lock.len() == 0 {
-                                drop(groups_lock);
-                                continue;
-                            }
-                            bytes.extend(&groups_lock[0].to_be_bytes());
-                            drop(groups_lock);
-                            bytes.extend(data);
-                            p2p_send
-                                .send(ChamomileSendMessage::Broadcast(broadcast, bytes))
-                                .await
-                                .map_err(|e| error!("Chamomile channel: {:?}", e))
-                                .expect("Chamomile channel closed");
-                        }
-                        NetworkType::Connect(peer) => {
-                            p2p_send
-                                .send(ChamomileSendMessage::Connect(peer.into()))
-                                .await
-                                .map_err(|e| error!("Chamomile channel: {:?}", e))
-                                .expect("Chamomile channel closed");
-                        }
-                        NetworkType::DisConnect(peer) => {
-                            p2p_send
-                                .send(ChamomileSendMessage::DisConnect(peer.into()))
-                                .await
-                                .map_err(|e| error!("Chamomile channel: {:?}", e))
-                                .expect("Chamomile channel closed");
-                        }
-                        NetworkType::NetworkState(req, sender) => {
-                            p2p_send
-                                .send(ChamomileSendMessage::NetworkState(req, sender))
-                                .await
-                                .map_err(|e| error!("Chamomile channel: {:?}", e))
-                                .expect("Chamomile channel closed");
-                        }
-                        NetworkType::NetworkReboot => {
-                            p2p_send
-                                .send(ChamomileSendMessage::NetworkReboot)
-                                .await
-                                .map_err(|e| error!("Chamomile channel: {:?}", e))
-                                .expect("Chamomile channel closed");
-                        }
-                        #[cfg(any(feature = "multiple", feature = "full"))]
-                        NetworkType::AddGroup(gid) => {
-                            let mut group_lock = my_groups_1.write().await;
-                            if !group_lock.contains(&gid) {
-                                group_lock.push(gid);
-                            }
-                            drop(group_lock);
-                        }
-                        #[cfg(any(feature = "multiple", feature = "full"))]
-                        NetworkType::DelGroup(gid) => {
-                            let mut group_lock = my_groups_1.write().await;
-                            let mut need_remove: Vec<usize> = vec![];
-                            for (k, i) in group_lock.iter().enumerate() {
-                                if i == &gid {
-                                    need_remove.push(k);
-                                }
-                            }
-                            for i in need_remove.iter().rev() {
-                                group_lock.remove(*i);
-                            }
-                            drop(group_lock);
-                        }
-                    },
-                }
-            }
-        });
-
         // handle chamomile send msg.
-        tokio::spawn(async move {
+        let listen_task = tokio::spawn(async move {
             // if group's inner message, from_group in our groups.
             // if layer's message,       from_group not in our groups.
 
@@ -370,8 +259,7 @@ pub mod prelude {
                             continue;
                         }
 
-                        let is_me = group_lock.contains(&fgid);
-                        if fgid == tgid && is_me {
+                        if fgid == tgid && group_lock.contains(&fgid) {
                             drop(group_lock);
                             let _ = group_handle_result(&fgid, &out_send, peer.into(), is_ok, data)
                                 .await;
@@ -379,18 +267,15 @@ pub mod prelude {
                             drop(group_lock);
                             // layer handle it.
                             #[cfg(any(feature = "std", feature = "full"))]
-                            {
-                                let (ff, tt) = if is_me { (tgid, fgid) } else { (fgid, tgid) };
-                                let _ = layer_handle_result(
-                                    ff,
-                                    tt,
-                                    &out_send,
-                                    peer.into(),
-                                    is_ok,
-                                    data,
-                                )
-                                .await;
-                            }
+                            let _ = layer_handle_result(
+                                fgid,
+                                tgid,
+                                &out_send,
+                                peer.into(),
+                                is_ok,
+                                data,
+                            )
+                            .await;
                         }
                     }
                     ChamomileReceiveMessage::StableLeave(peer) => {
@@ -494,9 +379,199 @@ pub mod prelude {
                         out_send
                             .send(ReceiveMessage::NetworkLost)
                             .await
-                            .map_err(|e| error!("Outside channel: {:?}", e))
-                            .expect("Outside channel closed");
+                            .map_err(|e| error!("Outside channel: {:?}", e));
                     }
+                    ChamomileReceiveMessage::OwnConnect(peer) => {
+                        let assist_id = peer.assist;
+                        let mut new_peer: Peer = peer.into();
+                        new_peer.id = assist_id;
+                        out_send
+                            .send(ReceiveMessage::Own(RecvType::Connect(new_peer, vec![])))
+                            .await
+                            .map_err(|e| error!("Outside channel: {:?}", e));
+                    }
+                    ChamomileReceiveMessage::OwnLeave(peer) => {
+                        let assist_id = peer.assist;
+                        let mut new_peer: Peer = peer.into();
+                        new_peer.id = assist_id;
+                        out_send
+                            .send(ReceiveMessage::Own(RecvType::Leave(new_peer)))
+                            .await
+                            .map_err(|e| error!("Outside channel: {:?}", e));
+                    }
+                    ChamomileReceiveMessage::OwnEvent(aid, data) => {
+                        out_send
+                            .send(ReceiveMessage::Own(RecvType::Event(aid, data)))
+                            .await
+                            .map_err(|e| error!("Outside channel: {:?}", e));
+                    }
+                }
+            }
+
+            warn!("Chamomile network is stopped");
+        });
+
+        // handle outside msg.
+        tokio::spawn(async move {
+            while let Some(message) = self_recv.recv().await {
+                match message {
+                    SendMessage::Own(msg) => match msg {
+                        SendType::Connect(tid, peer, data) => {
+                            p2p_send
+                                .send(ChamomileSendMessage::StableConnect(tid, peer.into(), data))
+                                .await
+                                .map_err(|e| error!("Chamomile channel: {:?}", e))
+                                .expect("Chamomile channel closed");
+                        }
+                        SendType::Event(_, _, data) => {
+                            p2p_send
+                                .send(ChamomileSendMessage::OwnEvent(data))
+                                .await
+                                .map_err(|e| error!("Chamomile channel: {:?}", e))
+                                .expect("Chamomile channel closed");
+                        }
+                        SendType::Stream(id, stream, data) => {
+                            p2p_send
+                                .send(ChamomileSendMessage::Stream(id, stream, data))
+                                .await
+                                .map_err(|e| error!("Chamomile channel: {:?}", e))
+                                .expect("Chamomile channel closed");
+                        }
+                        SendType::Disconnect(..) => {
+                            warn!("Own message has no DisConnect");
+                        }
+                        SendType::Result(..) => {
+                            warn!("Own message has no Result");
+                        }
+                    },
+                    #[cfg(any(feature = "single", feature = "std"))]
+                    SendMessage::Group(msg) => {
+                        let groups_lock = my_groups_1.read().await;
+                        if groups_lock.len() == 0 {
+                            drop(groups_lock);
+                            continue;
+                        }
+                        let default_group_id = groups_lock[0].clone();
+                        drop(groups_lock);
+
+                        group_handle_send(default_group_id, &p2p_send, msg)
+                            .await
+                            .map_err(|e| error!("Chamomile channel: {:?}", e))
+                            .expect("Chamomile channel closed");
+                    }
+                    #[cfg(any(feature = "multiple", feature = "full"))]
+                    SendMessage::Group(group_id, msg) => {
+                        group_handle_send(group_id, &p2p_send, msg)
+                            .await
+                            .map_err(|e| error!("Chamomile channel: {:?}", e))
+                            .expect("Chamomile channel closed");
+                    }
+                    SendMessage::Rpc(uid, param, is_ws) => {
+                        if let Some(ref rpc_send) = rpc_send {
+                            rpc_send
+                                .send(RpcSendMessage(uid, param, is_ws))
+                                .await
+                                .map_err(|e| error!("Rpc channel: {:?}", e))
+                                .expect("Rpc channel closed");
+                        }
+                    }
+                    #[cfg(feature = "std")]
+                    SendMessage::Layer(tgid, msg) => {
+                        let groups_lock = my_groups_1.read().await;
+                        if groups_lock.len() == 0 {
+                            drop(groups_lock);
+                            continue;
+                        }
+                        let default_group_id = groups_lock[0].clone();
+                        drop(groups_lock);
+
+                        layer_handle_send(default_group_id, tgid, &p2p_send, msg)
+                            .await
+                            .map_err(|e| error!("Chamomile channel: {:?}", e))
+                            .expect("Chamomile channel closed");
+                    }
+                    #[cfg(feature = "full")]
+                    SendMessage::Layer(fgid, tgid, msg) => {
+                        layer_handle_send(fgid, tgid, &p2p_send, msg)
+                            .await
+                            .map_err(|e| error!("Chamomile channel: {:?}", e))
+                            .expect("Chamomile channel closed");
+                    }
+                    SendMessage::Network(nmsg) => match nmsg {
+                        NetworkType::Broadcast(broadcast, data) => {
+                            // broadcast use default_group_id.
+                            let mut bytes = vec![];
+                            let groups_lock = my_groups_1.read().await;
+                            if groups_lock.len() == 0 {
+                                drop(groups_lock);
+                                continue;
+                            }
+                            bytes.extend(&groups_lock[0].to_be_bytes());
+                            drop(groups_lock);
+                            bytes.extend(data);
+                            p2p_send
+                                .send(ChamomileSendMessage::Broadcast(broadcast, bytes))
+                                .await
+                                .map_err(|e| error!("Chamomile channel: {:?}", e))
+                                .expect("Chamomile channel closed");
+                        }
+                        NetworkType::Connect(peer) => {
+                            p2p_send
+                                .send(ChamomileSendMessage::Connect(peer.into()))
+                                .await
+                                .map_err(|e| error!("Chamomile channel: {:?}", e))
+                                .expect("Chamomile channel closed");
+                        }
+                        NetworkType::DisConnect(peer) => {
+                            p2p_send
+                                .send(ChamomileSendMessage::DisConnect(peer.into()))
+                                .await
+                                .map_err(|e| error!("Chamomile channel: {:?}", e))
+                                .expect("Chamomile channel closed");
+                        }
+                        NetworkType::NetworkState(req, sender) => {
+                            p2p_send
+                                .send(ChamomileSendMessage::NetworkState(req, sender))
+                                .await
+                                .map_err(|e| error!("Chamomile channel: {:?}", e))
+                                .expect("Chamomile channel closed");
+                        }
+                        NetworkType::NetworkReboot => {
+                            p2p_send
+                                .send(ChamomileSendMessage::NetworkReboot)
+                                .await
+                                .map_err(|e| error!("Chamomile channel: {:?}", e))
+                                .expect("Chamomile channel closed");
+                        }
+                        NetworkType::NetworkStop => {
+                            warn!("Start stop chamomile...");
+                            let _ = p2p_send.send(ChamomileSendMessage::NetworkStop).await;
+                            listen_task.abort();
+                            break;
+                        }
+                        #[cfg(any(feature = "multiple", feature = "full"))]
+                        NetworkType::AddGroup(gid) => {
+                            let mut group_lock = my_groups_1.write().await;
+                            if !group_lock.contains(&gid) {
+                                group_lock.push(gid);
+                            }
+                            drop(group_lock);
+                        }
+                        #[cfg(any(feature = "multiple", feature = "full"))]
+                        NetworkType::DelGroup(gid) => {
+                            let mut group_lock = my_groups_1.write().await;
+                            let mut need_remove: Vec<usize> = vec![];
+                            for (k, i) in group_lock.iter().enumerate() {
+                                if i == &gid {
+                                    need_remove.push(k);
+                                }
+                            }
+                            for i in need_remove.iter().rev() {
+                                group_lock.remove(*i);
+                            }
+                            drop(group_lock);
+                        }
+                    },
                 }
             }
         });

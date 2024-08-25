@@ -1,11 +1,17 @@
 //! Some of the code is from the [bip0039](https://github.com/koushiro/bip0039).
 
 use core::{fmt, mem, ops::Range, str};
-use std::borrow::Cow;
-
 use hmac::Hmac;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256, Sha512};
+use std::borrow::Cow;
 use zeroize::Zeroize;
+
+#[cfg(feature = "rand_chacha")]
+use rand_chacha::{
+    rand_core::{RngCore, SeedableRng},
+    ChaChaRng,
+};
 
 use crate::error::Error;
 use crate::language::Language;
@@ -161,7 +167,7 @@ impl Count {
 /// For example, a 12 word mnemonic phrase is essentially a friendly representation of
 /// a 128-bit key, while a 24 word mnemonic phrase is essentially a 256-bit key.
 ///
-#[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Mnemonic {
     lang: Language,
     phrase: String,
@@ -218,7 +224,7 @@ impl Mnemonic {
     /// let mnemonic = Mnemonic::generate(Count::Words12);
     /// let phrase = mnemonic.phrase();
     /// ```
-    #[cfg(feature = "rand")]
+    #[cfg(feature = "rand_chacha")]
     pub fn generate(word_count: Count) -> Self {
         Self::generate_in(Language::English, word_count)
     }
@@ -233,12 +239,11 @@ impl Mnemonic {
     /// let mnemonic = Mnemonic::generate_in(Language::SimplifiedChinese, Count::Words24);
     /// let phrase = mnemonic.phrase();
     /// ```
-    #[cfg(feature = "rand")]
+    #[cfg(feature = "rand_chacha")]
     pub fn generate_in(lang: Language, word_count: Count) -> Self {
-        use rand::RngCore;
         const MAX_ENTROPY_BITS: usize = Count::Words24.entropy_bits();
 
-        let mut rng = rand::thread_rng();
+        let mut rng = ChaChaRng::from_entropy();
         let mut entropy = [0u8; MAX_ENTROPY_BITS / BITS_PER_BYTE];
         rng.fill_bytes(&mut entropy);
 

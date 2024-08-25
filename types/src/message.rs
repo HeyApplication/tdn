@@ -78,6 +78,8 @@ pub enum NetworkType {
     NetworkState(StateRequest, Sender<StateResponse>),
     /// When receive `ReceiveMessage::NetworkLost`, want to reboot network, it can use.
     NetworkReboot,
+    /// Stop & close p2p network.
+    NetworkStop,
     /// add group to TDN control. multiple group use.
     #[cfg(any(feature = "multiple", feature = "full"))]
     AddGroup(GroupId),
@@ -90,6 +92,8 @@ pub enum NetworkType {
 #[cfg(feature = "std")]
 #[derive(Debug)]
 pub enum SendMessage {
+    /// P2P network with same PeerId.
+    Own(SendType),
     /// Group: GroupMessage.
     Group(SendType),
     /// Layer: LayerMessage.
@@ -104,10 +108,12 @@ pub enum SendMessage {
 #[cfg(feature = "std")]
 #[derive(Debug)]
 pub enum ReceiveMessage {
+    /// P2P network with same PeerId.
+    Own(RecvType),
     /// Group: GroupMessage.
     Group(RecvType),
     /// Layer: LayerMessage. Take care of `Leave`.
-    Layer(GroupId, RecvType),
+    Layer(GroupId, GroupId, RecvType),
     /// RPC: connection uid, request params, is websocket.
     Rpc(u64, RpcParam, bool),
     /// when network lost all DHT network and direct stables. will tell outside.
@@ -118,6 +124,8 @@ pub enum ReceiveMessage {
 #[cfg(feature = "single")]
 #[derive(Debug)]
 pub enum SendMessage {
+    /// P2P network with same PeerId.
+    Own(SendType),
     /// Group: GroupMessage.
     Group(SendType),
     /// RPC: connection uid, request params, is websocket.
@@ -130,6 +138,8 @@ pub enum SendMessage {
 #[cfg(feature = "single")]
 #[derive(Debug)]
 pub enum ReceiveMessage {
+    /// P2P network with same PeerId.
+    Own(RecvType),
     /// Group: GroupMessage.
     Group(RecvType),
     /// RPC: connection uid, request params, is websocket.
@@ -142,6 +152,8 @@ pub enum ReceiveMessage {
 #[cfg(feature = "multiple")]
 #[derive(Debug)]
 pub enum SendMessage {
+    /// P2P network with same PeerId.
+    Own(SendType),
     /// Group: GroupMessage.
     Group(GroupId, SendType),
     /// RPC: connection uid, request params, is websocket.
@@ -154,6 +166,8 @@ pub enum SendMessage {
 #[cfg(feature = "multiple")]
 #[derive(Debug)]
 pub enum ReceiveMessage {
+    /// P2P network with same PeerId.
+    Own(RecvType),
     /// Group: GroupMessage.
     Group(GroupId, RecvType),
     /// RPC: connection uid, request params, is websocket.
@@ -166,6 +180,8 @@ pub enum ReceiveMessage {
 #[cfg(feature = "full")]
 #[derive(Debug)]
 pub enum SendMessage {
+    /// P2P network with same PeerId.
+    Own(SendType),
     /// Group: GroupMessage.
     Group(GroupId, SendType),
     /// Layer: LayerMessage.
@@ -181,6 +197,8 @@ pub enum SendMessage {
 #[cfg(feature = "full")]
 #[derive(Debug)]
 pub enum ReceiveMessage {
+    /// P2P network with same PeerId.
+    Own(RecvType),
     /// Group: GroupMessage.
     Group(GroupId, RecvType),
     /// Layer: LayerMessage.
