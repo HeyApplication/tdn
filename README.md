@@ -125,7 +125,7 @@ Use `feature` to control. (Tip: one group, is one chain, is one application)
 ## Pluggable library
 - [tdn-did](./did) decentralized identity.
 - [tdn-storage](./storage) Storage library, include Local file, Local db, Distributed db, Decentralized db.
-- [tdn-permission](https://github.com/cympletech/tdn-permission) Group permission library, include permissioned & permissionless group algorithm.
+- [tdn-permission](https://github.com/HeyApplication/tdn-permission) Group permission library, include permissioned & permissionless group algorithm.
 
 ## For more information, please visit:
 - Website: https://cympletech.com
