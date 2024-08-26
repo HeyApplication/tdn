@@ -29,12 +29,12 @@ unicode-normalization = { version = "0.1", default-features = false }
 rand_chacha = { version = "0.3", optional = true }
 
 [dependencies.ed25519-dalek]
-git = "https://github.com/cympletech/ed25519-dalek"
+git = "https://github.com/HeyApplication/ed25519-dalek"
 default-features = false
 optional = true
 
 [dependencies.curve25519-dalek]
-git = "https://github.com/cympletech/curve25519-dalek"
+git = "https://github.com/HeyApplication/curve25519-dalek"
 default-features = false
 optional = true
 
