@@ -12,3 +12,20 @@ A pluggable library for TDN, distributed identity and wallet multiple accounts.
 - [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)
 - [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
 - [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)
+
+## For more information, please visit:
+- Website: https://cympletech.com
+- Twitter: https://twitter.com/cympletech
+- Discord: https://discord.gg/UfFjp6Kaj4
+- E-mail: dev@cympletech.com
+
+## License
+
+This project is licensed under either of
+
+ * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
+   http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license ([LICENSE-MIT](LICENSE-MIT) or
+   http://opensource.org/licenses/MIT)
+
+at your option.
