@@ -5,7 +5,7 @@ authors = ["Dev <dev@cympletech.com>"]
 edition = "2021"
 readme = "README.md"
 description = "Distributed identity and wallet multiple accounts."
-repository = "https://github.com/cympletech/tdn"
+repository = "https://mariuszmalek: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@github.com/HeyApplication/tdn"
 keywords = ["did", "tdn", "wallet"]
 license = "MIT/Apache-2.0"
 
@@ -29,12 +29,12 @@ unicode-normalization = { version = "0.1", default-features = false }
 rand_chacha = { version = "0.3", optional = true }
 
 [dependencies.ed25519-dalek]
-git = "https://github.com/cympletech/ed25519-dalek"
+git = "https://mariuszmalek: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@github.com/HeyApplication/ed25519-dalek"
 default-features = false
 optional = true
 
 [dependencies.curve25519-dalek]
-git = "https://github.com/cympletech/curve25519-dalek"
+git = "https://mariuszmalek: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@github.com/HeyApplication/curve25519-dalek"
 default-features = false
 optional = true
 
