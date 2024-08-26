@@ -48,6 +48,26 @@ pub fn generate_ed25519(
     Ok(sk)
 }
 
+/// generate tdn id (ed25519) by mnemonic codes, account, index.
+pub fn generate_peer(
+    language: Language,
+    phrase: &str,
+    account: u32,
+    index: u32,
+    passphrase: Option<&str>,
+) -> Result<PeerKey> {
+    let seed = Mnemonic::from_phrase_in(language, phrase)?.to_seed(passphrase.unwrap_or(""));
+    let derive_path = format!("{}/{}'/0/{}", DERIVE_CHAIN, account, index);
+    let account = bip32::Ed25519ExtendedPrivKey::derive(&seed, derive_path.as_str())?;
+    let sk = account.secret_key;
+    let pk: PublicKey = (&sk).into();
+
+    Ok(PeerKey::Ed25519(Keypair {
+        public: pk,
+        secret: sk,
+    }))
+}
+
 /// generate ETH secret_key by mnemonic codes, account, index.
 pub fn generate_eth_account(
     language: Language,
