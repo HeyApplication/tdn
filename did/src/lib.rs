@@ -34,6 +34,7 @@ pub fn generate_mnemonic(language: Language, count: Count) -> String {
 
 
 /// generate tdn id (Peer) by mnemonic codes, account, index.
+#[cfg(feature = "ed25519")]
 pub fn generate_peer(
     language: Language,
     phrase: &str,
