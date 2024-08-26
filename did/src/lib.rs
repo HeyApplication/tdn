@@ -6,21 +6,21 @@ mod bip44;
 mod error;
 mod language;
 
-// #[cfg(feature = "ed25519")]
+#[cfg(feature = "ed25519")]
 pub use bip32::Ed25519ExtendedPrivKey;
 
 pub use bip32::Secp256k1ExtendedPrivKey;
 
-// #[cfg(feature = "ed25519")]
+#[cfg(feature = "ed25519")]
 pub use ed25519_dalek;
 
 pub use bip39::{Count, Mnemonic};
 pub use error::Error;
 pub use language::Language;
 
-// #[cfg(feature = "ed25519")]
+#[cfg(feature = "ed25519")]
 pub const PROOF_LENGTH: usize = 64; // use ed25519 signaure length.
-// #[cfg(feature = "ed25519")]
+#[cfg(feature = "ed25519")]
 const DERIVE_CHAIN: &'static str = "m/44'/7364'";
 
 const ETH_CHAIN: &'static str = "m/44'/60'";
@@ -33,7 +33,7 @@ pub fn generate_mnemonic(language: Language, count: Count) -> String {
 }
 
 /// generate tdn id (ed25519) by mnemonic codes, account, index.
-// #[cfg(feature = "ed25519")]
+#[cfg(feature = "ed25519")]
 pub fn generate_ed25519(
     language: Language,
     phrase: &str,
