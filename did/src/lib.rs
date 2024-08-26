@@ -49,6 +49,7 @@ pub fn generate_ed25519(
 }
 
 /// generate tdn id (ed25519) by mnemonic codes, account, index.
+#[cfg(feature = "ed25519")]
 pub fn generate_peer(
     language: Language,
     phrase: &str,
